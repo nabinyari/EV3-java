@@ -58,8 +58,8 @@ public class UltrasonicSensor {
                 // Example: Turn left slightly, move forward, then turn right to bypass
                 leftMotor.setSpeed(fullSpeed);
                 rightMotor.setSpeed(fullSpeed);
-                leftMotor.rotate(-180, true);  // Turn left (adjust angle as needed)
-                rightMotor.rotate(180, false);
+                leftMotor.rotate(-360, true);  // Turn left (adjust angle as needed)
+                rightMotor.rotate(360, false);
                 leftMotor.forward();
                 rightMotor.forward();
                 try {
@@ -75,7 +75,7 @@ public class UltrasonicSensor {
                 rightMotor.setSpeed(fullSpeed);
                 leftMotor.forward();
                 rightMotor.forward();
-                
+
             }
             // If distance > 30 cm, continue at full speed
             else {
