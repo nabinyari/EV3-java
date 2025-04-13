@@ -1,4 +1,4 @@
-package linefollower;
+package main;
 
 import lejos.hardware.motor.Motor;
 import lejos.hardware.sensor.EV3ColorSensor;
@@ -8,8 +8,8 @@ import lejos.hardware.Button;
 import lejos.robotics.SampleProvider;
 import lejos.utility.Delay;
 
-public class LineFollower implements Runnable {
-    public  void run() 
+public class LineFollower implements Runnable{
+    public void run() 
     { 
         lineSearch search = new lineSearch();
         // creating colorSensor named object and assigined S4 port
