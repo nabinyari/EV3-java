@@ -38,10 +38,11 @@ public class UltrasonicSensor implements Runnable{
             float distanceMeters = sample[0];  // Distance in meters
             float distanceCm = distanceMeters * 100;  // Convert to cm for easier comparison
 
+            synchronized(LCD.class) {
             // Display distance on LCD
             LCD.clear();
             LCD.drawString("Dist: " + distanceCm + " cm", 0, 0);
-
+            }
             // Task: Slow down at 30 cm (0.3 meters)
             if (distanceCm <= 30 && distanceCm > 10) {
                 leftMotor.setSpeed(slowSpeed);

@@ -26,12 +26,13 @@ public class LightSensor implements Runnable{
             // Get the current color Id reading from the sensor
             colorId.fetchSample(colorSample2, 0);
             int colorDetector = (int)colorSample2[0]; // convert the 0 index float value to integer
-
+            synchronized(LCD.class)
+            {
             LCD.clear(); // Clear the LCD screen
             LCD.drawString("Light Intensity: " + (int)(ambientSample1[0] * 100) + "%", 0, 0); // Display the light intensity value on the LCD screen as percentage
             String colorName = getcolorName(colorDetector);
             LCD.drawString("Color name: " + colorName, 0, 1);
-
+        }
 
             try {
                 Thread.sleep(200);
