@@ -9,77 +9,138 @@ import lejos.robotics.SampleProvider;
 import lejos.utility.Delay;
 
 public class LineFollower {
-
-    public static void main(String[] args) {
-        // Create and configure the color sensor
+    public static void main(String[] args) 
+    { 
+        lineSearch search = new lineSearch();
+        // creating colorSensor named object and assigined S4 port
         EV3ColorSensor colorSensor = new EV3ColorSensor(SensorPort.S4);
+        // Set the sensor to read the reflected red light intensity
+        SampleProvider light = colorSensor.getRedMode();
+        float[] lightSample = new float[light.sampleSize()];
 
-        // You can try & use other modes to see the difference & feel free to use the mode that
-        // suites your needs the best, for instance, getAmbientMode(), getRedMode(), etc
-        // Here we are setting the sensor to red mode (measures reflected red light)
-        SampleProvider light = colorSensor.getRedMode();  // Use red mode for reflected light intensity
+        float blackValue = 0.1f; // sensor value on black line
+        float whiteValue = 0.6f; // sensor value on white surface
 
-        // Create an array to hold the sensor data
-        float[] sample = new float[light.sampleSize()];
+        // The threshold is the midpoint between black and white light values
+        float threshold = (blackValue + whiteValue) / 2;
 
-        // Set motor speeds
+        // Initialize PID controller with constants (proportional, integral, derivative) and the target threshold
+        PIDController pid = new PIDController(0.8f, 0.01f, 0.3f, threshold);
+
+        // Set the motor speeds for a forward motion
         Motor.A.setSpeed(300);
-        Motor.B.setSpeed(300);
-
-        // Start motors moving forward
+        Motor.B.setSpeed(150);
         Motor.A.forward();
         Motor.B.forward();
 
-        // Continuously follow the line until a button is pressed
-        while (!Button.ESCAPE.isDown()) {
-            // Get the current red light intensity reading from the sensor
-            light.fetchSample(sample, 0);  // 0 is the index where data will be stored
-            
-            // for debugging purposes, better to display light intensity on LCD
+        // Main loop: runs until the ESCAPE button is pressed
+        while (!Button.ESCAPE.isDown()) 
+        {
+            // Fetch the current light intensity reading from the sensor
+            light.fetchSample(lightSample, 0);
+
+            // Display the current light intensity and threshold value on the LCD screen for debugging
             LCD.clear();
-            LCD.drawString("Red Light Intensity: " + (int)(sample[0] * 100) + "%", 0, 0);
-            
-            // Threshold for detecting the black line
-            // NOTE: You'll most probably have to fine tune the threshold value
-            float threshold = 0.2f;  // Adjusted threshold value for the black line detection
+            LCD.drawString("Light: " + (int)(lightSample[0] * 100) + "%", 0, 0);
+            LCD.drawString("Threshold: " + (int)(threshold * 100) + "%", 0, 1);
 
-            // If the light intensity is low (black line), the robot is on the line
-            if (sample[0] < threshold)
-            { 
-                Motor.A.setSpeed(300);
-                Motor.B.setSpeed(300);
-                Motor.A.forward();
-                Motor.B.forward();
-            }
-            else                        // Off the black line, adjust to turn towards the line
+            if( lightSample[0] > 0.2f)
             {
-                // Work on these logics. they are just for illustration purposes.
-                // The turns defined below can be inverted turns. So test yourselves and rectify accordingly
-                if (sample[0] > 0.6)
-                {
-                    // If it's very bright (white surface), turn left
-                    Motor.A.setSpeed(300);
-                    Motor.B.setSpeed(150);
-                }
-                else
-                {
-                    // If it's somewhat bright (near the edge of the line), turn right
-                    Motor.A.setSpeed(150);
-                    Motor.B.setSpeed(300);
-                }
-                Motor.A.forward();
-                Motor.B.forward();
+                search.spiralSearch(colorSensor, light);
+                continue;
             }
+            // Use the PID controller to calculate the correction value for the motors
+            float correctionValue = pid.calculatePID(lightSample[0]);
 
-            // Add a small delay to reduce the frequency of updates
+            //setting the max speed
+            int maxSpeed = 500;
+            Motor.A.forward();
+            Motor.B.forward();
+            // Adjust the motor speeds based on the correction from the PID controller
+            Motor.A.setSpeed(Math.min(300 + correctionValue, maxSpeed));
+            Motor.B.setSpeed(Math.min(300 - correctionValue, maxSpeed));
+
+            // making delay to prevent excessive data updates to motors
             Delay.msDelay(50);
         }
-
-        // Stop the motors before exiting
+        // Stop the motors when the ESCAPE button is pressed
         Motor.A.stop();
         Motor.B.stop();
-        
-        // Remember to close the sensor before exiting
+
         colorSensor.close();
+    }
+}
+
+class lineSearch 
+{
+    public void spiralSearch(EV3ColorSensor sensor, SampleProvider mode)
+    {
+        float[] sample = new float[mode.sampleSize()];
+
+        int firstSearchRadius = 100; // setting the speed to search 1st radius 
+        int lastSearchRadius = 500;  // setting the speed up to 500 to search the radius
+
+        while (!Button.ESCAPE.isDown())
+        {
+            mode.fetchSample(sample, 0);
+            // moving the motor in round pattern 
+            Motor.A.forward();
+            Motor.B.backward();
+            Motor.A.setSpeed(firstSearchRadius);
+            Motor.B.setSpeed(firstSearchRadius);
+
+            if(sample[0] < 0.3f && sample[0] > 0.05f) // giving the condition if the sensor detect the black like 
+            {
+                Motor.A.stop();
+                Motor.B.stop();
+                return; // Exit the method
+            }
+
+            firstSearchRadius = firstSearchRadius + 50; // if not then increasing speed by 50 
+
+            if (firstSearchRadius > lastSearchRadius) 
+            {
+                firstSearchRadius = 100; // again making the speed to it's normal
+            }
+
+            Delay.msDelay(100);
+        }
+    }
+}
+
+class PIDController
+{
+    float Kp;
+    float Ki;
+    float Kd;
+    float setPoint;
+    float integral;
+    float enderror;
+
+    // creating a constructor that set the value to calculate pid
+    public PIDController( float Kp, float Ki, float Kd, float setpoint)
+    {
+        this.Kp = Kp;
+        this.Ki = Ki;
+        this.Kd = Kd;
+        this.setPoint = setpoint;
+    }
+    // creating the method that to calculate the correction based on the current sensor value
+    float calculatePID(float value)
+    {
+        // Calculate the error (difference between set point and current value)
+        float error = setPoint - value;
+
+        // Update the integral (sum of errors over time)
+        integral = integral + error;
+
+        // Calculate the derivative (rate of change of the error)
+        float derivative = error - enderror;
+        
+        // assine the current error for the next iteration
+        enderror = error;
+
+        float correctionValue = Kp * error + Ki * integral + Kd * derivative;
+        return correctionValue; // Return the PID correction value
     }
 }
