@@ -39,12 +39,10 @@ public class LineFollower implements Runnable{
             // Fetch the current light intensity reading from the sensor
             light.fetchSample(lightSample, 0);
 
-            synchronized(LCD.class) {
             // Display the current light intensity and threshold value on the LCD screen for debugging
             LCD.clear();
             LCD.drawString("Light: " + (int)(lightSample[0] * 100) + "%", 0, 0);
             LCD.drawString("Threshold: " + (int)(threshold * 100) + "%", 0, 1);
-            }
             
             if( lightSample[0] > 0.2f)
             {
