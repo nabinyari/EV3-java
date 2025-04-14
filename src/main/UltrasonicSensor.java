@@ -5,89 +5,85 @@ import lejos.hardware.port.SensorPort;
 import lejos.hardware.lcd.LCD;
 import lejos.hardware.Button;
 import lejos.robotics.SampleProvider;
-import lejos.hardware.motor.EV3LargeRegulatedMotor;  // For motor control
+import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 
-public class UltrasonicSensor implements Runnable{
-
-    public void run() 
-    {
-        // Initialize ultrasonic sensor at port S2
+public class UltrasonicSensor implements Runnable {
+    public void run() {
         EV3UltrasonicSensor ultrasonicSensor = new EV3UltrasonicSensor(SensorPort.S2);
         SampleProvider distance = ultrasonicSensor.getDistanceMode();
         float[] sample = new float[distance.sampleSize()];
 
-        // Initialize motors (assuming two motors for differential drive)
         EV3LargeRegulatedMotor leftMotor = new EV3LargeRegulatedMotor(MotorPort.A);
         EV3LargeRegulatedMotor rightMotor = new EV3LargeRegulatedMotor(MotorPort.B);
 
-        // Set initial motor speed (degrees per second)
-        int fullSpeed = 300;  // Full speed
-        int slowSpeed = 150;  // Half speed for slowing down
+        int fullSpeed = 300;
+        int slowSpeed = 150;
 
-        // Start moving forward at full speed
         leftMotor.setSpeed(fullSpeed);
         rightMotor.setSpeed(fullSpeed);
         leftMotor.forward();
         rightMotor.forward();
 
-        // Loop until ESCAPE button is pressed
         while (!Button.ESCAPE.isDown()) {
-            // Read distance continuously
             distance.fetchSample(sample, 0);
-            float distanceMeters = sample[0];  // Distance in meters
-            float distanceCm = distanceMeters * 100;  // Convert to cm for easier comparison
+            float distanceMeters = sample[0];
+            float distanceCm = distanceMeters * 100;
 
-            synchronized(LCD.class) {
-            // Display distance on LCD
-            LCD.clear();
-            LCD.drawString("Dist: " + distanceCm + " cm", 0, 0);
+            synchronized (LCD.class) {
+                LCD.clear();
+                LCD.drawString("Dist: " + distanceCm + " cm", 0, 0);
             }
-            // Task: Slow down at 30 cm (0.3 meters)
-            if (distanceCm <= 30 && distanceCm > 10) {
+
+            if (distanceCm <= 12 && distanceCm > 5) {
+                // Slow down
                 leftMotor.setSpeed(slowSpeed);
                 rightMotor.setSpeed(slowSpeed);
                 leftMotor.forward();
                 rightMotor.forward();
-            }
-            // Task: Stop at 10 cm (0.1 meters)
-            else if (distanceCm <= 10) {
-                // Stop motors
+            } else if (distanceCm <= 5) {
+                // Stop
                 leftMotor.stop(true);
-                rightMotor.stop(true);
+                rightMotor.stop();
 
-                // Task: Move aside to bypass object
-                // Example: Turn left slightly, move forward, then turn right to bypass
-                leftMotor.setSpeed(fullSpeed);
-                rightMotor.setSpeed(fullSpeed);
-                leftMotor.rotate(-360, true);  // Turn left (adjust angle as needed)
-                rightMotor.rotate(360, false);
-                leftMotor.forward();
-                rightMotor.forward();
+                // Avoid the object (basic right-avoid-left bypass logic)
                 try {
-                    Thread.sleep(1000);  // Move forward for 1 second to bypass
+                    // Turn right
+                    leftMotor.setSpeed(fullSpeed);
+                    rightMotor.setSpeed(fullSpeed);
+                    leftMotor.forward();
+                    rightMotor.backward();
+                    Thread.sleep(500); // Adjust timing for turn
+
+                    // Move forward to bypass
+                    leftMotor.forward();
+                    rightMotor.forward();
+                    Thread.sleep(1000); // Adjust based on object size
+
+                    // Turn left to find the line again
+                    leftMotor.backward();
+                    rightMotor.forward();
+                    Thread.sleep(500);
+
+                    // Continue forward
+                    leftMotor.forward();
+                    rightMotor.forward();
+                    Thread.sleep(1000);
+
+                    // Restore full speed
+                    leftMotor.setSpeed(fullSpeed);
+                    rightMotor.setSpeed(fullSpeed);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                leftMotor.rotate(360, true);  // Turn right to realign
-                rightMotor.rotate(-360, false);
-
-                // Resume moving forward
-                leftMotor.setSpeed(fullSpeed);
-                rightMotor.setSpeed(fullSpeed);
-                leftMotor.forward();
-                rightMotor.forward();
-
-            }
-            // If distance > 30 cm, continue at full speed
-            else {
+            } else {
+                // Default full speed
                 leftMotor.setSpeed(fullSpeed);
                 rightMotor.setSpeed(fullSpeed);
                 leftMotor.forward();
                 rightMotor.forward();
             }
 
-            // Refresh every 100 ms
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -95,7 +91,6 @@ public class UltrasonicSensor implements Runnable{
             }
         }
 
-        // Cleanup
         leftMotor.close();
         rightMotor.close();
         ultrasonicSensor.close();
