@@ -1,23 +1,21 @@
 package main;
 
 import lejos.hardware.motor.Motor;
-import lejos.hardware.sensor.EV3ColorSensor;
-import lejos.hardware.port.SensorPort;
 import lejos.hardware.lcd.LCD;
 import lejos.hardware.Button;
-import lejos.robotics.SampleProvider;
 import lejos.utility.Delay;
 
 public class LineFollower implements Runnable{
+    dataShare Data;
+    lineSearch search;
+
+    public LineFollower(dataShare Data) {
+        this.Data = Data;
+        this.search = new lineSearch(Data);
+    }
+
     public void run() 
     { 
-        lineSearch search = new lineSearch();
-        // creating colorSensor named object and assigined S4 port
-        EV3ColorSensor colorSensor = new EV3ColorSensor(SensorPort.S4);
-        // Set the sensor to read the reflected red light intensity
-        SampleProvider light = colorSensor.getRedMode();
-        float[] lightSample = new float[light.sampleSize()];
-
         float blackValue = 0.1f; // sensor value on black line
         float whiteValue = 0.6f; // sensor value on white surface
 
@@ -25,88 +23,97 @@ public class LineFollower implements Runnable{
         float threshold = (blackValue + whiteValue) / 2;
 
         // Initialize PID controller with constants (proportional, integral, derivative) and the target threshold
-        PIDController pid = new PIDController(0.8f, 0.01f, 0.3f, threshold);
+        PIDController pid = new PIDController(1.2f, 0f, 0.3f, threshold);
 
         // Set the motor speeds for a forward motion
         Motor.A.setSpeed(300);
         Motor.B.setSpeed(150);
         Motor.A.forward();
         Motor.B.forward();
+        int lostCount = 0;
 
         // Main loop: runs until the ESCAPE button is pressed
         while (!Button.ESCAPE.isDown()) 
         {
-            // Fetch the current light intensity reading from the sensor
-            light.fetchSample(lightSample, 0);
-
+            float lightSample = Data.getIntensity();
             // Display the current light intensity and threshold value on the LCD screen for debugging
-            LCD.clear();
-            LCD.drawString("Light: " + (int)(lightSample[0] * 100) + "%", 0, 0);
-            LCD.drawString("Threshold: " + (int)(threshold * 100) + "%", 0, 1);
-            
-            if( lightSample[0] > 0.2f)
+            synchronized(LCD.class)
             {
-                search.spiralSearch(colorSensor, light);
+            LCD.clear();
+            LCD.drawString("Threshold: " + (int)(threshold * 100) + "%", 0, 1);
+            }
+
+            if (lightSample < 0.05f || lightSample > 0.7f) {
+                lostCount++;
+            } else {
+                lostCount = 0;
+            }
+
+            if (lostCount > 5) {
+                search.revolveSearch();
+                lostCount = 0;
                 continue;
             }
+        
             // Use the PID controller to calculate the correction value for the motors
-            float correctionValue = pid.calculatePID(lightSample[0]);
+            float correctionValue = pid.calculatePID(lightSample);
 
-            //setting the max speed
-            int maxSpeed = 500;
+            int baseSpeed = 200;
+            int maxSpeed = 400;
+            
             Motor.A.forward();
             Motor.B.forward();
+
             // Adjust the motor speeds based on the correction from the PID controller
-            Motor.A.setSpeed(Math.min(300 + correctionValue, maxSpeed));
-            Motor.B.setSpeed(Math.min(300 - correctionValue, maxSpeed));
+            Motor.A.setSpeed(Math.max(0, Math.min(baseSpeed + correctionValue, maxSpeed)));
+            Motor.B.setSpeed(Math.max(0, Math.min(baseSpeed - correctionValue, maxSpeed)));
+            
 
             // making delay to prevent excessive data updates to motors
-            Delay.msDelay(50);
+            Delay.msDelay(20);
         }
         // Stop the motors when the ESCAPE button is pressed
         Motor.A.stop();
         Motor.B.stop();
-
-        colorSensor.close();
     }
 }
 
 class lineSearch 
 {
-    public void spiralSearch(EV3ColorSensor sensor, SampleProvider mode)
-    {
-        float[] sample = new float[mode.sampleSize()];
+    dataShare Data;
 
-        int firstSearchRadius = 100; // setting the speed to search 1st radius 
-        int lastSearchRadius = 500;  // setting the speed up to 500 to search the radius
+    public lineSearch(dataShare Data) {
+        this.Data = Data;
+    }
 
-        while (!Button.ESCAPE.isDown())
-        {
-            mode.fetchSample(sample, 0);
-            // moving the motor in round pattern 
-            Motor.A.forward();
-            Motor.B.backward();
-            Motor.A.setSpeed(firstSearchRadius);
-            Motor.B.setSpeed(firstSearchRadius);
+    public void revolveSearch() {
+        int speed = 200;
 
-            if(sample[0] < 0.3f && sample[0] > 0.05f) // giving the condition if the sensor detect the black like 
-            {
+        // Continuously rotate in place to the left
+        Motor.A.setSpeed(speed);
+        Motor.B.setSpeed(speed);
+        Motor.A.backward();
+        Motor.B.forward();
+
+        while (!Button.ESCAPE.isDown()) {
+            float sample = Data.getIntensity();
+
+            // If the line is found, stop and return
+            if (sample < 0.3f && sample > 0.05f) {
                 Motor.A.stop();
                 Motor.B.stop();
-                return; // Exit the method
+                return;
             }
 
-            firstSearchRadius = firstSearchRadius + 50; // if not then increasing speed by 50 
-
-            if (firstSearchRadius > lastSearchRadius) 
-            {
-                firstSearchRadius = 100; // again making the speed to it's normal
-            }
-
-            Delay.msDelay(100);
+            Delay.msDelay(50); // Small delay to reduce sensor flooding
         }
+
+        // Stop if ESCAPE is pressed
+        Motor.A.stop();
+        Motor.B.stop();
     }
 }
+
 
 class PIDController
 {

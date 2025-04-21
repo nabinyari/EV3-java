@@ -1,16 +1,15 @@
 package main;
+
 public class App {
     public static void main(String[] args) {
-        LightSensor light = new LightSensor();
-        // LineFollower line = new LineFollower();
-        UltrasonicSensor ultra = new UltrasonicSensor();
+        dataShare sharedData = new dataShare(); // one shared instance
+        
+        // Create sensor and follower threads, passing the same sharedData
+        Thread t1 = new Thread(new LightSensor(sharedData));
+        Thread t2 = new Thread(new LineFollower(sharedData));
 
-        Thread t1 = new Thread(light);
-        // Thread t2 = new Thread(line);
-        Thread t3 = new Thread(ultra);
-
+        // Start both threads
         t1.start();
-        // t2.start();
-        t3.start();
+        t2.start();
     }
 }

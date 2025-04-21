@@ -7,32 +7,43 @@ import lejos.hardware.Button;
 import lejos.robotics.SampleProvider;
 
 public class LightSensor implements Runnable{
+        dataShare Data;
+
+        public LightSensor(dataShare Data) {
+            this.Data = Data;
+        }
     public void run()
     {
         EV3ColorSensor colorSensor = new EV3ColorSensor(SensorPort.S4);
 
-        SampleProvider ambientSample = colorSensor.getAmbientMode(); // using the getAmbientMode() too measures ambient light level 
+        SampleProvider lighIntensity = colorSensor.getRedMode(); // // Measures reflected light intensity 
         // Create an array to hold the sensor data
-        float[] ambientSample1 = new float[ambientSample.sampleSize()];
+        float[] lighIntensitys = new float[lighIntensity.sampleSize()];
 
         SampleProvider colorId = colorSensor.getColorIDMode(); // using the getColorIDMode() for detection of basic color as ID
-        float[] colorSample2 = new float[colorId.sampleSize()];
+        float[] colorSample = new float[colorId.sampleSize()];
 
         while (!Button.ESCAPE.isDown()) // Exit if the ESCAPE button is pressed
         {
             // Get the current light intensity reading from the sensor
-            ambientSample.fetchSample(ambientSample1, 0);
-
+            lighIntensity.fetchSample(lighIntensitys, 0);
+            Data.setIntensity(lighIntensitys[0]);
             // Get the current color Id reading from the sensor
-            colorId.fetchSample(colorSample2, 0);
-            int colorDetector = (int)colorSample2[0]; // convert the 0 index float value to integer
+            colorId.fetchSample(colorSample, 0);
+            int colorDetector = (int)colorSample[0]; // convert the 0 index float value to integer
+            
             synchronized(LCD.class)
             {
-            LCD.clear(); // Clear the LCD screen
-            LCD.drawString("Light Intensity: " + (int)(ambientSample1[0] * 100) + "%", 0, 0); // Display the light intensity value on the LCD screen as percentage
-            String colorName = getcolorName(colorDetector);
-            LCD.drawString("Color name: " + colorName, 0, 1);
-        }
+                LCD.clear(); // Clear the LCD screen
+                // Light intensity display
+                String lightMsg = "Light: " + (int)(lighIntensitys[0] * 100) + "%";
+                TextWrap(lightMsg, 0); // start from line 0
+                String colorName = getcolorName(colorDetector);
+                // Color name display
+                String colorMsg = "Color: " + colorName;
+                TextWrap(colorMsg, 2); // start from line 2 (leave one line space)
+            
+            }
 
             try {
                 Thread.sleep(200);
@@ -67,5 +78,19 @@ public class LightSensor implements Runnable{
                     return "This id color is not mentioned.";
   }
 }
+
+        public static void TextWrap(String msg, int startY) 
+        {
+                int maxLength = 16; // max chars per line on EV3 LCD
+                int localX = 0;
+                int y = startY;
+    
+                for (int i = 0; i < msg.length(); i += maxLength) 
+                {
+                        String line = msg.substring(i, Math.min(i + maxLength, msg.length()));
+                        LCD.drawString(line, localX, y++);
+                }
+        }
+    
 
 }
