@@ -1,1 +1,1 @@
-"C:\Program Files\Java\jdk1.7.0_80\bin\jar" -cfe linewithobject.jar line.Line ..\lib\ev3classes.jar .\line
+"C:\Program Files\Java\jdk1.7.0_80\bin\jar" -cfe main.jar main.Main ..\lib\ev3classes.jar .\main
