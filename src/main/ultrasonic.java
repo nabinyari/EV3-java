@@ -32,6 +32,7 @@ public class ultrasonic implements Runnable{
                 e.printStackTrace();
             }
         }
+        // Close the sensor when finished
         ultrasonicSensor.close();
     }
 }

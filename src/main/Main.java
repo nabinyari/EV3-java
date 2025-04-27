@@ -2,9 +2,9 @@ package main;
 
 public class Main {
     public static void main(String[] args) {
-        datashare sharedData = new datashare(); // one shared instance
+        datashare sharedData = new datashare(); 
         
-        // Create sensor and follower threads, passing the same sharedData
+         // Set up the threads for line following and ultrasonic sensor
         Thread t1 = new Thread(new LineFollower(sharedData));
         Thread t2 = new Thread(new ultrasonic(sharedData));
 
