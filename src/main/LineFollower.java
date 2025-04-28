@@ -106,6 +106,36 @@ public class LineFollower implements Runnable {
                 // Resume moving forward
                 Motor.A.forward();
                 Motor.B.forward();
+
+                                // Start searching for black line again
+                                boolean lineFound = false;
+                                while (!lineFound) {
+                                    redMode.fetchSample(lightSample, 0);
+                                    lightValue = lightSample[0];
+                
+                                    if (lightValue < threshold) {
+                                        // Found black line
+                                        Motor.A.stop();
+                                        Motor.B.stop();
+                                        LCD.clear();
+                                        LCD.drawString("Line found", 0, 0);
+                
+                                        // Align robot properly
+                                        Motor.A.setSpeed(200);
+                                        Motor.B.setSpeed(200);
+                                        Motor.A.rotate(60, true);  // Right turn
+                                        Motor.B.rotate(-60);       // Left turn
+                                        Delay.msDelay(100); // Allow small adjustment
+                
+                                        lineFound = true; // Stop searching
+                                    } else {
+                                        // Keep searching by moving forward
+                                        Motor.A.forward();
+                                        Motor.B.forward();
+                                        Delay.msDelay(30); // Small delay for stability
+                                    }
+                                }
+
                 continue; // Skip the rest of loop and restart
             }
             // If object is detected within 15 cm
